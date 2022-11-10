@@ -127,3 +127,84 @@ clean:
 .PHONY: test
 test:
 	cargo test
+	
+	
+	
+
+# ##############################################################################
+# # Additional
+# ##############################################################################
+
+# Created as described in https://nadim.computer/posts/2022-02-11-maccatalyst.html
+# and https://betterprogramming.pub/from-rust-to-swift-df9bde59b7cd
+
+libname := "libsurrealdb"
+
+# PREPARE instructions block //-------------------------------------------
+
+prepare: prepare_rustup prepare_toolchain prepare_dependencies
+
+prepare_rustup:
+	rustup update
+	#rustup toolchain install nightly
+	#rustup default nightly
+
+prepare_toolchain:
+	# iOS
+	rustup target add aarch64-apple-ios
+	# macOS
+	rustup target add x86_64-apple-darwin
+	rustup target add aarch64-apple-darwin
+	# iOS Simulator
+	rustup target add x86_64-apple-ios
+	rustup target add aarch64-apple-ios-sim
+
+prepare_dependencies:
+	cargo install flutter_rust_bridge_codegen
+	-flutter pub add flutter_rust_bridge
+	-flutter pub add -d build_runner
+	-flutter pub add -d freezed
+	-flutter pub add freezed_annotation
+	-flutter pub add --dev ffigen
+	-flutter pub add ffi
+    # if building for iOS or MacOS
+	cargo install cargo-xcode
+
+#prepare_catalyst:
+
+# BUILD instructions block //---------------------------------------------
+
+build: build_generated build_macos build_ios
+
+build_generated:
+	flutter_rust_bridge_codegen \
+        -r src/api.rs \
+        -d lib/bridge_generated.dart \
+        -c ios/Classes/bridge_generated.h \
+        -c macos/Classes/bridge_generated.h
+
+build_macos:
+	cargo build --release --target x86_64-apple-darwin
+	cargo build --release --target aarch64-apple-darwin
+	lipo -create \
+      target/x86_64-apple-darwin/release/$(libname).a \
+      target/aarch64-apple-darwin/release/$(libname).a \
+      -output macos/$(libname).a
+
+build_ios:
+	cargo build --release --target x86_64-apple-ios
+	cargo build --release --target aarch64-apple-ios-sim
+	lipo -create \
+      target/x86_64-apple-ios/release/$(libname).a \
+      target/aarch64-apple-ios-sim/release/$(libname).a \
+      -output ios/$(libname).a
+
+#build_catalyst:
+#	cargo build --release --target x86_64-apple-ios-macabi
+#	cargo build --release --target aarch64-apple-ios-macabi
+#	lipo -create \
+#      target/x86_64-apple-ios-macabi/release/$(libname).a \
+#      target/aarch64-apple-ios-macabi/release/$(libname).a \
+#      -output $(libname)_maccatalyst.a
+
+
